@@ -446,8 +446,7 @@ class Trainer(object):
     Trainer: Object that manages the training of a neural network.
     """
 
-    def __init__( 
-        self,
+    def __init__( self,
         network,
         batch_size,
         nb_epoch,
@@ -475,16 +474,13 @@ class Trainer(object):
         self.loss_fun = loss_fun
         self.shuffle_flag = shuffle_flag
 
-        #######################################################################
-        #                       ** START OF YOUR CODE **
-        #######################################################################
         if loss_fun == 'mse':
             self._loss_layer = MSELossLayer()
         elif loss_fun == 'cross_entropy':
             self._loss_layer = CrossEntropyLossLayer()
-        #######################################################################
-        #                       ** END OF YOUR CODE **
-        #######################################################################
+
+        
+
       
 
     @staticmethod
@@ -502,17 +498,8 @@ class Trainer(object):
             - {np.ndarray} -- shuffled inputs.
             - {np.ndarray} -- shuffled_targets.
         """
-
-        #######################################################################
-        #                       ** START OF YOUR CODE **
-        #######################################################################
-        
         np.random.shuffle(input_dataset)
         np.random.shuffle(target_dataset)
-
-        #######################################################################
-        #                       ** END OF YOUR CODE **
-        #######################################################################
 
         return (input_dataset, target_dataset) 
 
@@ -548,17 +535,9 @@ class Trainer(object):
             - target_dataset {np.ndarray} -- Array of corresponding targets, of
                 shape (#_training_data_points, #output_neurons).
         """
-        #######################################################################
-        #                       ** START OF YOUR CODE **
-        #######################################################################
-
         theta = np.zeros((input_dataset.shape[1], 1))
         errorList = []
 
-        #######################################################################
-        #                       ** END OF YOUR CODE **
-        #######################################################################
-        
         for i in range(self.nb_epoch):
             print("Epoch: " + str(i))
             # Creating Mini Batches             
@@ -570,24 +549,23 @@ class Trainer(object):
                 X, y = input_dataset, target_dataset
 
             data = np.hstack((X, y))
-            n = max(X.shape[0] // self.batch_size, 1)
-            i  = 0       
+            n = max(X.shape[0] // self.batch_size, 1)  
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
 
             # Learning Rate Decay so we dont overshoot the minimum
 
-            if (self.nb_epoch%1000 == 0):
+            if (i%1000 == 0):
                 self.learning_rate /= 2
 
             
 
-            for i in range(n):
-                yPred = self.network.forward(xBatches[i])                      
+            for j in range(n):
+                yPred = self.network.forward(xBatches[j])                      
                 # If wanting L2 regularisation: regularisation = self.network._sum_squared_weights 
 
-                loss = self._loss_layer.forward(yPred, yBatches[i])
+                loss = self._loss_layer.forward(yPred, yBatches[j])
                 gradient_loss = self._loss_layer.backward()
 
                 self.network.backward(gradient_loss)
@@ -597,16 +575,9 @@ class Trainer(object):
 
     def eval_loss(self, input_dataset, target_dataset):
 
-        #######################################################################
-        #                       ** START OF YOUR CODE **
-        #######################################################################
-
+        
         yPred = self.network.forward(input_dataset)        
         return self._loss_layer.forward(yPred, target_dataset)
-
-        #######################################################################
-        #                       ** END OF YOUR CODE **
-        #######################################################################        
         
 
 
@@ -711,7 +682,7 @@ def example_main():
         network=net,
         batch_size=8,
         nb_epoch=1000,
-        learning_rate=0.01, # was originally 0.01
+        learning_rate=0.01,
         loss_fun="cross_entropy",
         shuffle_flag=True,
     )
