@@ -368,7 +368,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in self._layers:
-            x = layer.forward(self, x)
+            x = layer.forward(x)
 
         return x
 
@@ -396,7 +396,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in reversed(self._layers):
-            grad_z = layer.backward(self, grad_z)
+            grad_z = layer.backward(grad_z)
         
         return grad_z
 
@@ -417,7 +417,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in self._layers:
-            layer.update_params(self, learning_rate)
+            layer.update_params(learning_rate)
 
         #######################################################################
         #                       ** END OF YOUR CODE **
