@@ -535,39 +535,31 @@ class Trainer(object):
             - target_dataset {np.ndarray} -- Array of corresponding targets, of
                 shape (#_training_data_points, #output_neurons).
         """
-        theta = np.zeros((input_dataset.shape[1], 1))
-        errorList = []
 
-        for i in range(self.nb_epoch):
-            print("Epoch: " + str(i))
+        for epoch in range(self.nb_epoch):
+            print("Epoch: " + str(epoch))
             # Creating Mini Batches             
             miniBatches = []
 
             if self.shuffle_flag == True:
-                 (X, y) = self.shuffle(input_dataset, target_dataset)
+                 X, y = self.shuffle(input_dataset, target_dataset)
             else:
                 X, y = input_dataset, target_dataset
 
-            data = np.hstack((X, y))
             n = max(X.shape[0] // self.batch_size, 1)  
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
-
-            # Learning Rate Decay so we dont overshoot the minimum
         
 
             for j in range(n):
-                yPred = self.network.forward(xBatches[j])                      
+                yPred = self.network.forward(xBatches[j])                    
                 # If wanting L2 regularisation: regularisation = self.network._sum_squared_weights 
 
                 loss = self._loss_layer.forward(yPred, yBatches[j])
                 gradient_loss = self._loss_layer.backward()
-
                 self.network.backward(gradient_loss)
-                self.network.update_params(self.learning_rate)                
-
-        # Unsure if this is what we want. Doesnt really train the "network" that should be given from MultiLayerNetwork?
+                self.network.update_params(self.learning_rate)
 
     def eval_loss(self, input_dataset, target_dataset):
 
