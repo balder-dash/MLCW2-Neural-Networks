@@ -498,9 +498,9 @@ class Trainer(object):
             - {np.ndarray} -- shuffled inputs.
             - {np.ndarray} -- shuffled_targets.
         """
-        np.random.shuffle(input_dataset)
-        np.random.shuffle(target_dataset)
-
+        combined = list(zip(input_dataset, target_dataset))
+        np.random.shuffle(combined)
+        input_dataset[:], target_dataset[:] = zip(*combined)
         return (input_dataset, target_dataset) 
 
     def grad(X, y, theta): #Computing Gradient of Error Function
@@ -555,11 +555,7 @@ class Trainer(object):
             yBatches = np.array_split(y, n)
 
             # Learning Rate Decay so we dont overshoot the minimum
-
-            if (i%1000 == 0):
-                self.learning_rate /= 2
-
-            
+        
 
             for j in range(n):
                 yPred = self.network.forward(xBatches[j])                      
