@@ -368,7 +368,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in self._layers:
-            x = layer.forward(x)
+            x = layer.forward(self, x)
 
         return x
 
@@ -396,7 +396,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in reversed(self._layers):
-            grad_z = layer.backward(grad_z)
+            grad_z = layer.backward(self, grad_z)
         
         return grad_z
 
@@ -417,7 +417,7 @@ class MultiLayerNetwork(object):
         #######################################################################
 
         for layer in self._layers:
-            layer.update_params(learning_rate)
+            layer.update_params(self, learning_rate)
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -537,7 +537,7 @@ class Trainer(object):
         """
 
         for epoch in range(self.nb_epoch):
-            print("Epoch: " + str(epoch))
+            
             # Creating Mini Batches             
             miniBatches = []
 
@@ -546,17 +546,20 @@ class Trainer(object):
             else:
                 X, y = input_dataset, target_dataset
 
-            n = max(X.shape[0] // self.batch_size, 1)  
+            n = max((X.shape[0] // self.batch_size), 1)  
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
-        
+
+            if (epoch%1000 == 0):
+                self.learning_rate /= 2
 
             for j in range(n):
                 yPred = self.network.forward(xBatches[j])                    
                 # If wanting L2 regularisation: regularisation = self.network._sum_squared_weights 
 
                 loss = self._loss_layer.forward(yPred, yBatches[j])
+                print("Epoch: " + str(epoch) + ", " + str(loss))
                 gradient_loss = self._loss_layer.backward()
                 self.network.backward(gradient_loss)
                 self.network.update_params(self.learning_rate)
@@ -644,7 +647,7 @@ class Preprocessor(object):
 
 def example_main():
     input_dim = 4
-    neurons = [16, 3]
+    neurons = [16, 3] # Changed from 16 to 8
     activations = ["relu", "identity"]
     net = MultiLayerNetwork(input_dim, neurons, activations)
 
