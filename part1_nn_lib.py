@@ -16,7 +16,6 @@ def xavier_init(size, gain = 1.0):
     low = -gain * np.sqrt(6.0 / np.sum(size))
     high = gain * np.sqrt(6.0 / np.sum(size))
     return np.random.uniform(low=low, high=high, size=size)
-    #
 
 
 class Layer:
@@ -377,8 +376,7 @@ class MultiLayerNetwork(object):
 
         for layer in self._layers:
             x = layer.forward(x)
-            self._sum_squared_weights += np.sum(layer.get_W() ** 2)
-
+            self._sum_squared_weights += np.sum(np.square(layer.get_W()))
         return x
 
         #######################################################################
@@ -406,8 +404,6 @@ class MultiLayerNetwork(object):
 
         for layer in reversed(self._layers):
             grad_z = layer.backward(grad_z)
-
-        
         return grad_z
 
         #######################################################################
@@ -510,7 +506,6 @@ class Trainer(object):
             - {np.ndarray} -- shuffled inputs.
             - {np.ndarray} -- shuffled_targets.
         """
-        print(True)
         combined = list(zip(input_dataset, target_dataset))
         np.random.shuffle(combined)
         input_dataset[:], target_dataset[:] = zip(*combined)
@@ -563,7 +558,7 @@ class Trainer(object):
                 loss = loss + self._lambda*regularization 
                 
                 gradLoss = self._loss_layer.backward()
-                print("Epoch: " + str(epoch) + ", " + str(gradLoss)) 
+                print("Epoch: "+ str(epoch))
                 self.network.backward(gradLoss)
                 self.network.update_params(self.learning_rate)
 
