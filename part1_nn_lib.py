@@ -537,30 +537,32 @@ class Trainer(object):
 
         for epoch in range(self.nb_epoch):
 
-            if self.shuffle_flag == True:
-                 X, y = self.shuffle(input_dataset, target_dataset)
+            if self.shuffle_flag:
+                indices = np.random.permutation(input_dataset.shape[0])
+                X, y = input_dataset[indices], target_dataset[indices]
             else:
                 X, y = input_dataset, target_dataset
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
 
-            if (epoch%1000 == 0):
+            # Learning rate decay
+            if epoch % 1000 == 0:
                 self.learning_rate /= 2
 
             for j in range(n):
                 yPred = self.network.forward(xBatches[j])  
 
                 regularization = self.network._sum_squared_weights
-                                 
 
                 loss = self._loss_layer.forward(yPred, yBatches[j])
-                loss = loss + self._lambda*regularization 
-                
+                loss = loss + self._lambda * regularization 
+
                 gradLoss = self._loss_layer.backward()
-                print("Epoch: "+ str(epoch))
+                print("Epoch: " + str(epoch))
                 self.network.backward(gradLoss)
                 self.network.update_params(self.learning_rate)
+
 
     def eval_loss(self, input_dataset, target_dataset):
 
@@ -670,7 +672,7 @@ def example_main():
     trainer = Trainer(
         network=net,
         batch_size=8,
-        nb_epoch=100,
+        nb_epoch=1000,
         learning_rate=0.01,
         loss_fun="mse",
         shuffle_flag=True,
