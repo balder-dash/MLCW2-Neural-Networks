@@ -16,6 +16,7 @@ def xavier_init(size, gain = 1.0):
     low = -gain * np.sqrt(6.0 / np.sum(size))
     high = gain * np.sqrt(6.0 / np.sum(size))
     return np.random.uniform(low=low, high=high, size=size)
+    #
 
 
 class Layer:
