@@ -142,10 +142,13 @@ class SigmoidLayer(Layer):
         g_derivative = np.multiply(self._cache_current, 1-self._cache_current)
         return np.multiply(grad_z, g_derivative)
 
+        
+
         #######################################################################
         #                       ** END OF YOUR CODE **
         #######################################################################
-
+    def get_W(self):
+        return 0
 
 class ReluLayer(Layer):
     """
@@ -203,7 +206,8 @@ class ReluLayer(Layer):
         #######################################################################
         #                       ** END OF YOUR CODE **
         #######################################################################
-
+    def get_W(self):
+        return 0
 
 class LinearLayer(Layer):
     """
@@ -224,7 +228,7 @@ class LinearLayer(Layer):
         #######################################################################
         #                       ** START OF YOUR CODE **
         #######################################################################
-        self._W = xavier_init((n_in, n_out))
+        self._W = xavier_init((n_in, n_out), 1.0)
         self._b = xavier_init((n_out))             # This should be of size (n_out, batch_size) however the latter isn't available but may still work
 
         self._cache_current = None
@@ -307,7 +311,8 @@ class LinearLayer(Layer):
         #######################################################################
         #                       ** END OF YOUR CODE **
         #######################################################################
-
+    def get_W(self):
+        return self._W
 
 class MultiLayerNetwork(object):
     """
@@ -331,12 +336,14 @@ class MultiLayerNetwork(object):
         self.input_dim = input_dim
         self.neurons = neurons
         self.activations = activations
+        
 
         #######################################################################
         #                       ** START OF YOUR CODE **
         #######################################################################
         
         self._layers = [] 
+        self._sum_squared_weights = 0
 
         for i in range(len(neurons)):
             if(i == 0):
@@ -369,6 +376,7 @@ class MultiLayerNetwork(object):
 
         for layer in self._layers:
             x = layer.forward(x)
+            self._sum_squared_weights += np.sum(layer.get_W() ** 2)
 
         return x
 
@@ -397,6 +405,7 @@ class MultiLayerNetwork(object):
 
         for layer in reversed(self._layers):
             grad_z = layer.backward(grad_z)
+
         
         return grad_z
 
@@ -473,6 +482,8 @@ class Trainer(object):
         self.learning_rate = learning_rate
         self.loss_fun = loss_fun
         self.shuffle_flag = shuffle_flag
+        self._lambda = 0.01
+        self._decay_factor = 1.0
 
         if loss_fun == 'mse':
             self._loss_layer = MSELossLayer()
@@ -498,21 +509,12 @@ class Trainer(object):
             - {np.ndarray} -- shuffled inputs.
             - {np.ndarray} -- shuffled_targets.
         """
+        print(True)
         combined = list(zip(input_dataset, target_dataset))
         np.random.shuffle(combined)
         input_dataset[:], target_dataset[:] = zip(*combined)
         return (input_dataset, target_dataset) 
 
-    def grad(X, y, theta): #Computing Gradient of Error Function
-        ## Need to figure out where theta actually comes from. Where can I find the model parameters
-        hypo = np.dot(X, theta) # predictions
-        return np.dot(X.transpose(), (hypo-y))
-    
-    def error(X, y, theta):
-        h = np.dot(X, theta)
-        J = np.dot((h-y).transpose(), (h-y)) ## ||h-y||
-        J /= 2
-        return J[0]
     
 
     def train(self, input_dataset, target_dataset):
@@ -535,18 +537,14 @@ class Trainer(object):
             - target_dataset {np.ndarray} -- Array of corresponding targets, of
                 shape (#_training_data_points, #output_neurons).
         """
+        n = max((input_dataset.shape[0] // self.batch_size), 1) 
 
         for epoch in range(self.nb_epoch):
-            
-            # Creating Mini Batches             
-            miniBatches = []
 
             if self.shuffle_flag == True:
                  X, y = self.shuffle(input_dataset, target_dataset)
             else:
                 X, y = input_dataset, target_dataset
-
-            n = max((X.shape[0] // self.batch_size), 1)  
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
@@ -555,13 +553,17 @@ class Trainer(object):
                 self.learning_rate /= 2
 
             for j in range(n):
-                yPred = self.network.forward(xBatches[j])                    
-                # If wanting L2 regularisation: regularisation = self.network._sum_squared_weights 
+                yPred = self.network.forward(xBatches[j])  
+
+                regularization = self.network._sum_squared_weights
+                                 
 
                 loss = self._loss_layer.forward(yPred, yBatches[j])
-                print("Epoch: " + str(epoch) + ", " + str(loss))
-                gradient_loss = self._loss_layer.backward()
-                self.network.backward(gradient_loss)
+                loss = loss + self._lambda*regularization 
+                
+                gradLoss = self._loss_layer.backward()
+                print("Epoch: " + str(epoch) + ", " + str(gradLoss)) 
+                self.network.backward(gradLoss)
                 self.network.update_params(self.learning_rate)
 
     def eval_loss(self, input_dataset, target_dataset):
@@ -672,9 +674,9 @@ def example_main():
     trainer = Trainer(
         network=net,
         batch_size=8,
-        nb_epoch=1000,
+        nb_epoch=100,
         learning_rate=0.01,
-        loss_fun="cross_entropy",
+        loss_fun="mse",
         shuffle_flag=True,
     )
 
