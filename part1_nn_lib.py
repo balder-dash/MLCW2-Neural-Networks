@@ -376,7 +376,8 @@ class MultiLayerNetwork(object):
 
         for layer in self._layers:
             x = layer.forward(x)
-            self._sum_squared_weights += np.sum(np.square(layer.get_W()))
+            self._sum_squared_weights += np.sum(layer.get_W() ** 2)
+
         return x
 
         #######################################################################
@@ -404,6 +405,8 @@ class MultiLayerNetwork(object):
 
         for layer in reversed(self._layers):
             grad_z = layer.backward(grad_z)
+
+        
         return grad_z
 
         #######################################################################
@@ -506,10 +509,8 @@ class Trainer(object):
             - {np.ndarray} -- shuffled inputs.
             - {np.ndarray} -- shuffled_targets.
         """
-        combined = list(zip(input_dataset, target_dataset))
-        np.random.shuffle(combined)
-        input_dataset[:], target_dataset[:] = zip(*combined)
-        return (input_dataset, target_dataset) 
+        indices = np.random.permutation(input_dataset.shape[0])
+        return input_dataset[indices], target_dataset[indices]
 
     
 
@@ -537,32 +538,30 @@ class Trainer(object):
 
         for epoch in range(self.nb_epoch):
 
-            if self.shuffle_flag:
-                indices = np.random.permutation(input_dataset.shape[0])
-                X, y = input_dataset[indices], target_dataset[indices]
+            if self.shuffle_flag == True:
+                 X, y = self.shuffle(input_dataset, target_dataset)
             else:
                 X, y = input_dataset, target_dataset
 
             xBatches = np.array_split(X, n)
             yBatches = np.array_split(y, n)
 
-            # Learning rate decay
-            if epoch % 1000 == 0:
+            if (epoch%1000 == 0):
                 self.learning_rate /= 2
 
             for j in range(n):
                 yPred = self.network.forward(xBatches[j])  
 
                 regularization = self.network._sum_squared_weights
+                                 
 
                 loss = self._loss_layer.forward(yPred, yBatches[j])
-                loss = loss + self._lambda * regularization 
-
+                loss = loss + self._lambda*regularization 
+                
                 gradLoss = self._loss_layer.backward()
-                print("Epoch: " + str(epoch))
+                print("Epoch: " + str(epoch) + ", " + str(gradLoss)) 
                 self.network.backward(gradLoss)
                 self.network.update_params(self.learning_rate)
-
 
     def eval_loss(self, input_dataset, target_dataset):
 
@@ -672,7 +671,7 @@ def example_main():
     trainer = Trainer(
         network=net,
         batch_size=8,
-        nb_epoch=1000,
+        nb_epoch=100,
         learning_rate=0.01,
         loss_fun="mse",
         shuffle_flag=True,
