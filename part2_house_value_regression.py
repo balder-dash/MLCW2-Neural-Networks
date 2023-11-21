@@ -110,7 +110,13 @@ class Regressor():
         #######################################################################
 
         X, _ = self._preprocessor(x, training = False) # Do not forget
-        pass
+        
+        self.eval()
+
+        with torch.no_grad():
+            xTensor = torch.tensor(X.values, dtype=torch.float32)
+            yHat = self(xTensor) 
+            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
 
         #######################################################################
         #                       ** END OF YOUR CODE **
