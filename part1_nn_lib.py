@@ -559,7 +559,7 @@ class Trainer(object):
                 loss = loss + self._lambda*regularization 
                 
                 gradLoss = self._loss_layer.backward()
-                print("Epoch: " + str(epoch) + ", " + str(gradLoss)) 
+                #print("Epoch: " + str(epoch) + ", " + str(gradLoss)) 
                 self.network.backward(gradLoss)
                 self.network.update_params(self.learning_rate)
 
