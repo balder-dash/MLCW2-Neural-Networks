@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import StepLR
 
 class Regressor():
 
-    def __init__(self, x, batch_size, learning_rate, optimiser, nb_epoch = 1000):
+    def __init__(self, x, batch_size=10, learning_rate = 0.001, optimiser = "Adam", nb_epoch = 1000):
         # You can add any input parameters you need
         # Remember to set them with a default value for LabTS tests
         """ 
@@ -165,8 +165,8 @@ class Regressor():
         # Choose Adam or AdaDelta as an optimiser.
         # Experiment..?
 
-        optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate) # Interesting...
-        scheduler = StepLR(optimiser, step_size=5, gamma=0.1)
+        optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay = 1e-5) # Interesting...
+        scheduler = StepLR(optimiser, step_size=5, gamma=0.2) # To be tuned
 
         train_dataset = TensorDataset(X_train, y_train)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size) # ASSUMING DATA IS ALREADY SHUFFLED!!
@@ -185,7 +185,6 @@ class Regressor():
                 optimiser.step()
 
                 total_training_loss += loss.item()
-                
             scheduler.step()
 
             # outputs = self.model(x)
@@ -399,8 +398,8 @@ def example_main():
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
     # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
-    train_rows = round(0.8*total_rows)
-    valid_rows = round(0.1*total_rows)
+    train_rows = round(0.6*total_rows)
+    valid_rows = round(0.2*total_rows)
 
     x_train = data.loc[:train_rows, data.columns != output_label]
     y_train = data.loc[:train_rows, [output_label]]
