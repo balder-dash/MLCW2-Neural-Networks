@@ -395,8 +395,8 @@ def example_main():
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
     # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
-    train_rows = round(0.6*total_rows)
-    valid_rows = round(0.2*total_rows)
+    train_rows = round(0.8*total_rows)
+    valid_rows = round(0.1*total_rows)
 
     x_train = data.loc[:train_rows, data.columns != output_label]
     y_train = data.loc[:train_rows, [output_label]]
