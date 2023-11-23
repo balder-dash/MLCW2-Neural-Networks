@@ -10,6 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from torch.optim.lr_scheduler import StepLR
 # import seaborn as sns
 
 class Regressor():
@@ -165,6 +166,7 @@ class Regressor():
         # Experiment..?
 
         optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate) # Interesting...
+        scheduler = StepLR(optimiser, step_size=5, gamma=0.1)
 
         train_dataset = TensorDataset(X_train, y_train)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size) # ASSUMING DATA IS ALREADY SHUFFLED!!
@@ -183,6 +185,8 @@ class Regressor():
                 optimiser.step()
 
                 total_training_loss += loss.item()
+                
+            scheduler.step()
 
             # outputs = self.model(x)
         avg_training_loss = loss.item() / len(train_loader)
