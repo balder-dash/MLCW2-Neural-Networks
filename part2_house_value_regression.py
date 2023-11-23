@@ -118,6 +118,10 @@ class Regressor():
         #                       ** END OF YOUR CODE **
         #######################################################################
 
+    def postprocess(self, y):
+        tensor_y = torch.tensor(y.values, dtype=torch.float32)
+        tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
+        return tensor_y
         
     def fit(self, x, y):
         """
