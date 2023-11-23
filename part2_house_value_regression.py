@@ -355,7 +355,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
                 model.nb_epoch = epoch
                 model.fit(x_train, y_train)
                 rmse = model.score(x_valid, y_valid)
-                print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
+                #print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
                 
                 if cur_best_score == None or rmse < cur_best_score:
                     best_params['nb_epoch'] = epoch
