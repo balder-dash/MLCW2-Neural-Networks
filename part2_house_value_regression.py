@@ -87,7 +87,6 @@ class Regressor():
         transformed = transformer.fit_transform(x)
         transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())
 
-        #print(transformed_x.isna().sum())
         # Tensors??
 
         tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
@@ -99,10 +98,8 @@ class Regressor():
             y_max = tensor_y.max().item()
             tensor_y = (tensor_y - y_min) / (y_max - y_min)
         else:
-            print("getting None for y")
             tensor_y = None
 
-        #print(type(tensor_x), type(tensor_y))
         return tensor_x, tensor_y
         
         # # Normalise the dataset
@@ -188,9 +185,8 @@ class Regressor():
                 total_training_loss += loss.item()
 
             # outputs = self.model(x)
-        #print(loss.item())
         avg_training_loss = loss.item() / len(train_loader)
-        #print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
+        # print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
 
         return self.model
 
@@ -250,30 +246,30 @@ class Regressor():
         trueValues = trueValues.numpy()
         predictedValues = self.predict(x)
 
-        #print("True: ", trueValues[:10])
-        #print("Predicted: ",predictedValues[:10])
-        #print(trueValues.shape, predictedValues.shape)
+        # print("True: ", trueValues[:10])
+        # print("Predicted: ",predictedValues[:10])
 
         mse = mean_squared_error(trueValues, predictedValues)
         rmse = np.sqrt(mse)
 
-        #print("MSE: ", mse, "\nRMSE: ", rmse)
+        # print("MSE: ", mse, "\nRMSE: ", rmse)
 
-        return rmse
+        # return rmse
 
-        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
-        # plot_data = pd.DataFrame({'True Values': X[:, -1], 'Predicted Values': Y.flatten()})
+        # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
+        # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
 
-        # plt.scatter(x=plot_data['Predicted Values'], y=plot_data['True Values'], color='red', label='True Values', s=10)
-        # plt.scatter(x=plot_data['Predicted Values'], y=plot_data['Predicted Values'], color='blue', label='Predicted Values', s=10)
+        plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
+        plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
 
-        # # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
+        # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
+        plt.xlabel("Predicted Values")
+        plt.ylabel("Values")
+        plt.legend()
+        plt.title('Regression Plot: True vs Predicted Values')
+        plt.show()
 
-        # plt.legend()
-        # plt.title('Regression Plot: True vs Predicted Values')
-        # plt.show()
-
-        # return rmse 
+        return rmse 
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -355,7 +351,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
                 model.nb_epoch = epoch
                 model.fit(x_train, y_train)
                 rmse = model.score(x_valid, y_valid)
-                #print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
+                print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
                 
                 if cur_best_score == None or rmse < cur_best_score:
                     best_params['nb_epoch'] = epoch
@@ -395,20 +391,31 @@ def example_main():
     # But remember that LabTS tests take Pandas DataFrame as inputs
     data = pd.read_csv("housing.csv") 
 
-    # Splitting input and output
-    x_train = data.loc[:, data.columns != output_label]
-    y_train = data.loc[:, [output_label]]
+    # Splitting input and output, and the dataset
+    total_rows = data.shape[0]
+    # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
+    train_rows = round(0.6*total_rows)
+    valid_rows = round(0.2*total_rows)
+
+    x_train = data.loc[:train_rows, data.columns != output_label]
+    y_train = data.loc[:train_rows, [output_label]]
+
+    x_valid = data.loc[train_rows:train_rows+valid_rows:, data.columns != output_label]
+    y_valid = data.loc[train_rows:train_rows+valid_rows, [output_label]]
+
+    x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
+    y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
 
     # Training
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=16, learning_rate=0.0001, optimiser='Adam', nb_epoch = 10)
+    regressor = Regressor(x_train, batch_size=16, learning_rate=0.01, optimiser='Adam', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
 
     # Error
-    error = regressor.score(x_train, y_train)
+    error = regressor.score(x_test, y_test)
     print("\nRegressor error: {}\n".format(error))
 
 
