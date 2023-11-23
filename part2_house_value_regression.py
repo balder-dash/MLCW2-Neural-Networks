@@ -217,7 +217,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
+            return yHat.numpy()*500000 if torch.is_tensor(yHat) else yHat.detach().numpy()
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -241,9 +241,10 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
+        # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
 
-        trueValues = trueValues.numpy()
+        # trueValues = trueValues.numpy()
+        trueValues = y
         predictedValues = self.predict(x)
 
         # print("True: ", trueValues[:10])
