@@ -10,7 +10,7 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 
 class Regressor():
 
@@ -78,26 +78,43 @@ class Regressor():
 
 
         # Fill in the NaNs in the dataset with the column mean
-
         values = x[["longitude", "latitude", "housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income"]].mean()
         values['ocean_proximity'] = 'INLAND'
-        x.fillna(value=values)
+        x = x.fillna(value=values)
 
         # Use one hot encoding to encode the ocean proximity column
         transformer = make_column_transformer((OneHotEncoder(), ['ocean_proximity']), remainder='passthrough')
         transformed = transformer.fit_transform(x)
         transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())
+
+        #print(transformed_x.isna().sum())
+        # Tensors??
+
+        tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
+        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (tensor_x.max(dim=0).values - tensor_x.min(dim=0).values)
+
+        if y is not None:
+            tensor_y = torch.tensor(y.values, dtype=torch.float32)
+            y_min = tensor_y.min().item()
+            y_max = tensor_y.max().item()
+            tensor_y = (tensor_y - y_min) / (y_max - y_min)
+        else:
+            print("getting None for y")
+            tensor_y = None
+
+        #print(type(tensor_x), type(tensor_y))
+        return tensor_x, tensor_y
         
-        # Normalise the dataset
-        normalised_x = (transformed_x - transformed_x.min()) / (transformed_x.max() - transformed_x.min())
+        # # Normalise the dataset
+        # normalised_x = (transformed_x - transformed_x.min()) / (transformed_x.max() - transformed_x.min())
 
-        if y is not None: 
-            self.y_min = y.min()[0]
-            self.y_max = y.max()[0]
-            normalised_y = np.array((y - self.y_min) / (self.y_max - self.y_min))
-        else: normalised_y = None
+        # if y is not None: 
+        #     self.y_min = y.min()[0]
+        #     self.y_max = y.max()[0]
+        #     normalised_y = np.array((y - self.y_min) / (self.y_max - self.y_min))
+        # else: normalised_y = None
 
-        return np.array(normalised_x), normalised_y
+        # return np.array(normalised_x), normalised_y
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -124,10 +141,12 @@ class Regressor():
 
         X, Y = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
         X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
-        X_train = torch.tensor(X_train, dtype=torch.float32)
-        X_val = torch.tensor(X_val, dtype=torch.float32)
-        y_train = torch.tensor(y_train, dtype=torch.float32) # Might have to reshape these, check later.
-        y_val = torch.tensor(y_val, dtype=torch.float32) # Might have to reshape these, check later.
+        y_train.reshape(-1, 1)
+
+        # X_train = torch.tensor(X_train, dtype=torch.float32)
+        # X_val = torch.tensor(X_val, dtype=torch.float32)
+        # y_train = torch.tensor(y_train, dtype=torch.float32) # Might have to reshape these, check later.
+        # y_val = torch.tensor(y_val, dtype=torch.float32) # Might have to reshape these, check later.
 
         # How are we defining the model...
 
@@ -138,9 +157,9 @@ class Regressor():
             nn.ReLU(),
             nn.Linear(12, 8),
             nn.ReLU(),
-            nn.Linear(8, 6),
+            nn.Linear(8, 4),
             nn.ReLU(),
-            nn.Linear(6, 1)
+            nn.Linear(4, 1)
         ) # Arbitrary numbers...
 
         loss_func = nn.MSELoss()
@@ -153,13 +172,13 @@ class Regressor():
         train_dataset = TensorDataset(X_train, y_train)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size) # ASSUMING DATA IS ALREADY SHUFFLED!!
 
+        torch.autograd.set_detect_anomaly(True)
+
         for epoch in range(self.nb_epoch):
             self.model.train()
             total_training_loss = 0
 
             for batch_inputs, batch_target in train_loader:
-                print("Batch inputs", batch_inputs)
-                print("Batch Targets", batch_target)
                 optimiser.zero_grad() # Turns gradients to zero?
                 outputs = self.model(batch_inputs)
                 loss = loss_func(outputs, batch_target)
@@ -169,8 +188,9 @@ class Regressor():
                 total_training_loss += loss.item()
 
             # outputs = self.model(x)
+        #print(loss.item())
         avg_training_loss = loss.item() / len(train_loader)
-        print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
+        #print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
 
         return self.model
 
@@ -198,9 +218,10 @@ class Regressor():
 
         X, _ = self._preprocessor(x, training = False) # Do not forget
 
-        self.model.eval()
-        yHat = self.model(X)
-        return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
+        with torch.no_grad():
+            #self.model.eval()
+            yHat = self.model(X)
+            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -212,8 +233,8 @@ class Regressor():
 
         Arguments:
             - x {pd.DataFrame} -- Raw input array of shape 
-                (batch_size, input_size).
-            - y {pd.DataFrame} -- Raw output array of shape (batch_size, 1).
+                (batch_size, input_size). Run through predict to get predicted values
+            - y {pd.DataFrame} -- Raw output array of shape (batch_size, 1). True values
 
         Returns:
             {float} -- Quantification of the efficiency of the model.
@@ -224,12 +245,19 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        X, _ = self._preprocessor(x, y = y, training = False) # Do not forget
+        _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
 
-        mse = mean_squared_error(X[:,-1], self.predict(x))
+        trueValues = trueValues.numpy()
+        predictedValues = self.predict(x)
+
+        #print("True: ", trueValues[:10])
+        #print("Predicted: ",predictedValues[:10])
+        #print(trueValues.shape, predictedValues.shape)
+
+        mse = mean_squared_error(trueValues, predictedValues)
         rmse = np.sqrt(mse)
 
-        print("MSE: ", mse, "\nRMSE: ", rmse)
+        #print("MSE: ", mse, "\nRMSE: ", rmse)
 
         return rmse
 
@@ -325,8 +353,8 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
             model.batch_size = size 
             for epoch in params['nb_epoch']:
                 model.nb_epoch = epoch
-                model.fit(x, y)
-                rmse = model.score()
+                model.fit(x_train, y_train)
+                rmse = model.score(x_valid, y_valid)
                 print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
                 
                 if cur_best_score == None or rmse < cur_best_score:
@@ -375,7 +403,7 @@ def example_main():
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, nb_epoch = 10)
+    regressor = Regressor(x_train, batch_size=16, learning_rate=0.0001, optimiser='Adam', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
 
