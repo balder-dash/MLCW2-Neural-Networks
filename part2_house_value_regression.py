@@ -256,18 +256,18 @@ class Regressor():
 
         # return rmse
 
-        # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
-        # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
+        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
+        # # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
 
-        plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
-        plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
+        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
+        # plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
 
-        # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
-        plt.xlabel("Predicted Values")
-        plt.ylabel("Values")
-        plt.legend()
-        plt.title('Regression Plot: True vs Predicted Values')
-        plt.show()
+        # # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
+        # plt.xlabel("Predicted Values")
+        # plt.ylabel("Values")
+        # plt.legend()
+        # plt.title('Regression Plot: True vs Predicted Values')
+        # plt.show()
 
         return rmse 
 
