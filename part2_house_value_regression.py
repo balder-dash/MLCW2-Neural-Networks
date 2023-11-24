@@ -10,11 +10,12 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+from torch.optim.lr_scheduler import StepLR
 # import seaborn as sns
 
 class Regressor():
 
-    def __init__(self, x, batch_size, learning_rate, optimiser, nb_epoch = 1000):
+    def __init__(self, x, batch_size=10, learning_rate = 0.001, optimiser = "Adam", nb_epoch = 1000):
         # You can add any input parameters you need
         # Remember to set them with a default value for LabTS tests
         """ 
@@ -94,9 +95,9 @@ class Regressor():
 
         if y is not None:
             tensor_y = torch.tensor(y.values, dtype=torch.float32)
-            y_min = tensor_y.min().item()
-            y_max = tensor_y.max().item()
-            tensor_y = (tensor_y - y_min) / (y_max - y_min)
+            self.y_min = tensor_y.min().item()
+            self.y_max = tensor_y.max().item()
+            tensor_y = (tensor_y - self.y_min) / (self.y_max - self.y_min)
         else:
             tensor_y = None
 
@@ -117,6 +118,10 @@ class Regressor():
         #                       ** END OF YOUR CODE **
         #######################################################################
 
+    def postprocess(self, y):
+        tensor_y = torch.tensor(y, dtype=torch.float32)
+        tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
+        return tensor_y
         
     def fit(self, x, y):
         """
@@ -164,7 +169,8 @@ class Regressor():
         # Choose Adam or AdaDelta as an optimiser.
         # Experiment..?
 
-        optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate) # Interesting...
+        optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay = 1e-5) # Interesting...
+        scheduler = StepLR(optimiser, step_size=5, gamma=0.2) # To be tuned
 
         train_dataset = TensorDataset(X_train, y_train)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size) # ASSUMING DATA IS ALREADY SHUFFLED!!
@@ -183,10 +189,11 @@ class Regressor():
                 optimiser.step()
 
                 total_training_loss += loss.item()
+            scheduler.step()
 
             # outputs = self.model(x)
         avg_training_loss = loss.item() / len(train_loader)
-        # print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
+        print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
 
         return self.model
 
@@ -241,11 +248,11 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
-
-        trueValues = trueValues.numpy()
-        predictedValues = self.predict(x)
-
+        _, Y = self._preprocessor(x, y = y, training = False) # Do not forget
+        # trueValues = trueValues.numpy()
+        trueValues = self._preprocessor(Y)
+        predictedValues = self.postprocess(self.predict(x))
+        # print(self.postprocess(predictedValues))
         # print("True: ", trueValues[:10])
         # print("Predicted: ",predictedValues[:10])
 
@@ -256,18 +263,18 @@ class Regressor():
 
         # return rmse
 
-        # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
-        # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
+        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
+        # # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
 
-        plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
-        plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
+        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
+        # plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
 
-        # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
-        plt.xlabel("Predicted Values")
-        plt.ylabel("Values")
-        plt.legend()
-        plt.title('Regression Plot: True vs Predicted Values')
-        plt.show()
+        # # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
+        # plt.xlabel("Predicted Values")
+        # plt.ylabel("Values")
+        # plt.legend()
+        # plt.title('Regression Plot: True vs Predicted Values')
+        # plt.show()
 
         return rmse 
 
@@ -333,7 +340,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
 
 
     params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[200, 400, 600, 800, 1000],
+              'nb_epoch':[10, 20, 30, 40],
               'learning_rate':[0.01, 0.02, 0.03, 0.04, 0.05]}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
@@ -343,22 +350,53 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
     best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None}
     cur_best_score = None
 
-    for rate in params['learning_rate']:
-        model.learning_rate = rate
-        for size in params['batch_size']:
-            model.batch_size = size 
-            for epoch in params['nb_epoch']:
-                model.nb_epoch = epoch
-                model.fit(x_train, y_train)
-                rmse = model.score(x_valid, y_valid)
-                print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
+    # for rate in params['learning_rate']:
+    #     model.learning_rate = rate
+    #     for size in params['batch_size']:
+    #         model.batch_size = size 
+    #         for epoch in params['nb_epoch']:
+    #             model.nb_epoch = epoch
+    #             model.fit(x_train, y_train)
+    #             rmse = model.score(x_valid, y_valid)
+    #             print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
                 
-                if cur_best_score == None or rmse < cur_best_score:
-                    best_params['nb_epoch'] = epoch
-                    best_params['batch_size'] = size
-                    best_params['learning_rate'] = rate
+    #             if cur_best_score == None or rmse < cur_best_score:
+    #                 best_params['nb_epoch'] = epoch
+    #                 best_params['batch_size'] = size
+    #                 best_params['learning_rate'] = rate
+    rmse_train_list = []
+    rmse_valid_list = []
 
+    for epoch in params['nb_epoch']:
+        model.nb_epoch = epoch
+        model.fit(x_train, y_train)
+        
+        # Calculate RMSE for training data
+        rmse_train = model.score(x_train, y_train)
+        rmse_train_list.append(rmse_train)
 
+        # Calculate RMSE for validation data
+        rmse_valid = model.score(x_valid, y_valid)
+        rmse_valid_list.append(rmse_valid)
+
+        print("RMSE for epoch=" + str(epoch) + " is " + str(rmse_valid))
+
+        if cur_best_score == None or rmse_valid < cur_best_score:
+            best_params['nb_epoch'] = epoch
+            # best_params['batch_size'] = size
+            # best_params['learning_rate'] = rate
+            cur_best_score = rmse_valid
+
+    print(best_params)
+
+    # plot rmse against hyperparam
+    epochs = np.arange(1, len(rmse_train_list) + 1) # I think this should be against nb_epochs
+    plt.plot(epochs, rmse_train_list,color="red", label='Training RMSE')
+    plt.plot(epochs, rmse_valid_list,color="blue", label='Validation RMSE')
+    plt.xlabel('Number of Epochs')
+    plt.ylabel('RMSE')
+    plt.legend()
+    plt.show()
     return  best_params
     # Note to self: Use held-out not cross-validation. So train/validation/test
     # We try a bunch of different hyperparameters on training
@@ -400,7 +438,7 @@ def example_main():
     x_train = data.loc[:train_rows, data.columns != output_label]
     y_train = data.loc[:train_rows, [output_label]]
 
-    x_valid = data.loc[train_rows:train_rows+valid_rows:, data.columns != output_label]
+    x_valid = data.loc[train_rows:train_rows+valid_rows, data.columns != output_label]
     y_valid = data.loc[train_rows:train_rows+valid_rows, [output_label]]
 
     x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
@@ -410,13 +448,14 @@ def example_main():
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=16, learning_rate=0.01, optimiser='Adam', nb_epoch = 10)
-    regressor.fit(x_train, y_train)
+    regressor = Regressor(x_train, batch_size=8, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
+    # regressor.fit(x_train, y_train)
+    RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, regressor)
     save_regressor(regressor)
 
     # Error
     error = regressor.score(x_test, y_test)
-    print("\nRegressor error: {}\n".format(error))
+    print("\nRegressor error(final): {}\n".format(error))
 
 
 if __name__ == "__main__":
