@@ -102,6 +102,9 @@ class Regressor():
         else:
             tensor_y = None
 
+        print(tensor_x.shape)
+        # print(tensor_y.shape)
+
         return tensor_x, tensor_y
         
         # # Normalise the dataset
@@ -120,9 +123,8 @@ class Regressor():
         #######################################################################
 
     def postprocess(self, y):
-        tensor_y = torch.tensor(y, dtype=torch.float32)
-        tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
-        return tensor_y
+        denormalised_y = (y * (self.y_max - self.y_min)) + self.y_min
+        return denormalised_y
         
     def fit(self, x, y):
         """
@@ -142,9 +144,9 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        X, Y = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
-        X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
-        y_train.reshape(-1, 1)
+        X_train, y_train = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
+        # X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
+        # y_train.reshape(-1, 1)
 
         # X_train = torch.tensor(X_train, dtype=torch.float32)
         # X_val = torch.tensor(X_val, dtype=torch.float32)
@@ -225,7 +227,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
+            return self.postprocess(yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy())
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -252,7 +254,7 @@ class Regressor():
         # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
         # trueValues = trueValues.numpy()
         trueValues = y
-        predictedValues = self.postprocess(self.predict(x))
+        predictedValues = self.predict(x)
         # print(self.postprocess(predictedValues))
         # print("True: ", trueValues[:10])
         # print("Predicted: ",predictedValues[:10])
@@ -340,9 +342,9 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     # Parameters to potentially tune: batch size, number of epochs, dropout ...
 
 
-    params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[5, 10],
-              'learning_rate':[0.0002, 0.0005, 0.008, 0.0012]}
+    params = {'batch_size':[8, 16, 24, 32, 40, 48],
+              'nb_epoch':[5, 10, 15],
+              'learning_rate':[0.0002, 0.0005, 0.0008]}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
     best_params = gs.fit(x, y)
@@ -360,7 +362,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
                 regressor.fit(x_train, y_train)
                 rmse = regressor.score(x_valid, y_valid)
-                print(str(epoch) + "," + str(size) + "," + str(rate) + "," + str(rmse))
+                print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + str(rmse) + "],")
                 
                 if cur_best_score == None or rmse < cur_best_score:
                     best_params['nb_epoch'] = epoch
@@ -416,6 +418,11 @@ def example_main():
 
     x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
     y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
+
+    print(x_train.shape)
+    print(y_train.shape)
+    print(x_valid.shape)
+    print(y_valid.shape)
 
     # Training
     # This example trains on the whole available dataset. 
