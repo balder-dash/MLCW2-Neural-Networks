@@ -94,14 +94,14 @@ class Regressor():
         # Tensors??
         # tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
         # print(torch.isnan(tensor_x).any())
-        temp = tensor_x.max(dim=0).values
-        for i in range(len(temp)):
-            if temp[i] == 0:
-                temp[i] = 1
+        col_maximums = tensor_x.max(dim=0).values
+        for i in range(len(col_maximums)):
+            if col_maximums[i] == 0:
+                col_maximums[i] = 1
 
         # print(temp)
 
-        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (temp - tensor_x.min(dim=0).values)
+        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (col_maximums - tensor_x.min(dim=0).values)
         # print(tensor_x.shape)       
         # print(torch.isnan(tensor_x).any())
 
