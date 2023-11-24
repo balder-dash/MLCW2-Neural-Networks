@@ -78,7 +78,6 @@ class Regressor():
         # Return preprocessed x and y, return None for y if it was None
         # return x, (y if isinstance(y, pd.DataFrame) else None)
 
-
         # Fill in the NaNs in the dataset with the column mean
         values = x[["longitude", "latitude", "housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income"]].mean()
         values['ocean_proximity'] = 'INLAND'
@@ -90,10 +89,21 @@ class Regressor():
         x['ocean_proximity'] = pd.Categorical(x['ocean_proximity'], categories=['INLAND', '<1H OCEAN', 'NEAR BAY', 'NEAR OCEAN', 'ISLAND'])
         transformed = pd.get_dummies(data=x, columns=['ocean_proximity'])
         transformed_x = np.vstack(transformed.values).astype(float)
+        # print(np.isnan(transformed_x).any())
         tensor_x = torch.tensor(transformed_x, dtype=torch.float32)
         # Tensors??
         # tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
-        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (tensor_x.max(dim=0).values - tensor_x.min(dim=0).values)
+        # print(torch.isnan(tensor_x).any())
+        temp = tensor_x.max(dim=0).values
+        for i in range(len(temp)):
+            if temp[i] == 0:
+                temp[i] = 1
+
+        # print(temp)
+
+        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (temp - tensor_x.min(dim=0).values)
+        # print(tensor_x.shape)       
+        # print(torch.isnan(tensor_x).any())
 
         if y is not None:
             tensor_y = torch.tensor(y.values, dtype=torch.float32)
