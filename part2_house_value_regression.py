@@ -102,9 +102,6 @@ class Regressor():
         else:
             tensor_y = None
 
-        print(tensor_x.shape)
-        # print(tensor_y.shape)
-
         return tensor_x, tensor_y
         
         # # Normalise the dataset
@@ -418,11 +415,6 @@ def example_main():
 
     x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
     y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
-
-    print(x_train.shape)
-    print(y_train.shape)
-    print(x_valid.shape)
-    print(y_valid.shape)
 
     # Training
     # This example trains on the whole available dataset. 
