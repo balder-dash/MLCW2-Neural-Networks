@@ -83,15 +83,16 @@ class Regressor():
         values = x[["longitude", "latitude", "housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income"]].mean()
         values['ocean_proximity'] = 'INLAND'
         x = x.fillna(value=values)
-
         # Use one hot encoding to encode the ocean proximity column
-        transformer = make_column_transformer((OneHotEncoder(), ['ocean_proximity']), remainder='passthrough')
+        """transformer = make_column_transformer((OneHotEncoder(), ['ocean_proximity']), remainder='passthrough')
         transformed = transformer.fit_transform(x)
-        transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())
-
+        transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())"""
+        x['ocean_proximity'] = pd.Categorical(x['ocean_proximity'], categories=['INLAND', '<1H OCEAN', 'NEAR BAY', 'NEAR OCEAN', 'ISLAND'])
+        transformed = pd.get_dummies(data=x, columns=['ocean_proximity'])
+        transformed_x = np.vstack(transformed.values).astype(float)
+        tensor_x = torch.tensor(transformed_x, dtype=torch.float32)
         # Tensors??
-
-        tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
+        # tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
         tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (tensor_x.max(dim=0).values - tensor_x.min(dim=0).values)
 
         if y is not None:
@@ -155,11 +156,11 @@ class Regressor():
         self.model = nn.Sequential(
             nn.Linear(self.input_size, 18),
             nn.ReLU(),
-            nn.Linear(18, 12),
+            nn.Linear(18, 14),
             nn.ReLU(),
-            nn.Linear(12, 8),
+            nn.Linear(14, 7),
             nn.ReLU(),
-            nn.Linear(8, 4),
+            nn.Linear(7, 4),
             nn.ReLU(),
             nn.Linear(4, 1)
         ) # Arbitrary numbers...
@@ -422,14 +423,14 @@ def example_main():
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    # regressor = Regressor(x_train, batch_size=16, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
-    print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
-    # regressor.fit(x_train, y_train)
-    # save_regressor(regressor)
+    regressor = Regressor(x_train, batch_size=16, learning_rate=0.0012, optimiser='Adam', nb_epoch = 10)
+    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
+    regressor.fit(x_train, y_train)
+    save_regressor(regressor)
 
     # Error
-    # error = regressor.score(x_test, y_test)
-    # print("\nRegressor error: {}\n".format(error))
+    error = regressor.score(x_test, y_test)
+    print("\nRegressor error: {}\n".format(error))
 
 
 if __name__ == "__main__":
