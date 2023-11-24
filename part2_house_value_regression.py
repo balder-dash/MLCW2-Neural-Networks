@@ -341,32 +341,34 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
     params = {'batch_size':[8, 16, 24, 32, 40, 48],
               'nb_epoch':[5, 10, 15],
-              'learning_rate':[0.0002, 0.0005, 0.0008]}
+              'learning_rate':[0.0002, 0.0005, 0.0008],
+              'opt':['AdaDelta', 'Adam']}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
     best_params = gs.fit(x, y)
     print("Hyperparam tuning best accuracy: " + str(gs.best_score_))"""
 
-    best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None}
+    best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None, 'opt':None}
     cur_best_score = None
 
-    print("Epoch | Batch Size | Learning Rate | RMSE")
+    print("Epoch | Batch Size | Learning Rate | Optimiser | RMSE")
     for epoch in params['nb_epoch']:
         for size in params['batch_size']:
             for rate in params['learning_rate']:
+                for opt in params['opt']:
+                    regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
 
-                regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser='Adam', nb_epoch=epoch)
-
-                regressor.fit(x_train, y_train)
-                rmse = regressor.score(x_valid, y_valid)
-                print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + str(rmse) + "],")
-                
-                if cur_best_score == None or rmse < cur_best_score:
-                    best_params['nb_epoch'] = epoch
-                    best_params['batch_size'] = size
-                    best_params['learning_rate'] = rate
-                    cur_best_score = rmse
-                    save_regressor(regressor)
+                    regressor.fit(x_train, y_train)
+                    rmse = regressor.score(x_valid, y_valid)
+                    print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + opt + "," + str(rmse) + "],")
+                    
+                    if cur_best_score == None or rmse < cur_best_score:
+                        best_params['nb_epoch'] = epoch
+                        best_params['batch_size'] = size
+                        best_params['learning_rate'] = rate
+                        best_params['opt'] = opt
+                        cur_best_score = rmse
+                        save_regressor(regressor)
 
 
     return  best_params
