@@ -95,9 +95,9 @@ class Regressor():
 
         if y is not None:
             tensor_y = torch.tensor(y.values, dtype=torch.float32)
-            y_min = tensor_y.min().item()
-            y_max = tensor_y.max().item()
-            tensor_y = (tensor_y - y_min) / (y_max - y_min)
+            self.y_min = tensor_y.min().item()
+            self.y_max = tensor_y.max().item()
+            tensor_y = (tensor_y - self.y_min) / (self.y_max - self.y_min)
         else:
             tensor_y = None
 
@@ -119,7 +119,7 @@ class Regressor():
         #######################################################################
 
     def postprocess(self, y):
-        tensor_y = torch.tensor(y.values, dtype=torch.float32)
+        tensor_y = torch.tensor(y, dtype=torch.float32)
         tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
         return tensor_y
         
@@ -224,7 +224,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return yHat.numpy()*500000 if torch.is_tensor(yHat) else yHat.detach().numpy()
+            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -249,11 +249,10 @@ class Regressor():
         #######################################################################
 
         # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
-
         # trueValues = trueValues.numpy()
         trueValues = y
         predictedValues = self.predict(x)
-
+        print(self.postprocess(predictedValues))
         # print("True: ", trueValues[:10])
         # print("Predicted: ",predictedValues[:10])
 
@@ -418,7 +417,7 @@ def example_main():
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=16, learning_rate=0.01, optimiser='Adam', nb_epoch = 10)
+    regressor = Regressor(x_train, batch_size=8, learning_rate=0.005, optimiser='Adam', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
 
