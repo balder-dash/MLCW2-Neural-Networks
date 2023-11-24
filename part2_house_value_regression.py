@@ -11,6 +11,7 @@ from sklearn.compose import make_column_transformer
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
+from sklearn.utils import shuffle
 # import seaborn as sns
 
 class Regressor():
@@ -118,10 +119,10 @@ class Regressor():
         #                       ** END OF YOUR CODE **
         #######################################################################
 
-    def postprocess(self, y):
-        tensor_y = torch.tensor(y, dtype=torch.float32)
+    def postprocess(self, tensor_y):
+        # tensor_y = torch.tensor(y, dtype=torch.float32)
         tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
-        return tensor_y
+        return tensor_y.numpy()
         
     def fit(self, x, y):
         """
@@ -141,8 +142,8 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        X, Y = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
-        X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
+        X_train, y_train = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
+        # X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
         y_train.reshape(-1, 1)
 
         # X_train = torch.tensor(X_train, dtype=torch.float32)
@@ -193,7 +194,7 @@ class Regressor():
 
             # outputs = self.model(x)
         avg_training_loss = loss.item() / len(train_loader)
-        print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
+        # print(f"Epoch {epoch+1}, Average training loss: {avg_training_loss}")
 
         return self.model
 
@@ -224,7 +225,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
+            return self.postprocess(yHat) 
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -247,16 +248,13 @@ class Regressor():
         #######################################################################
         #                       ** START OF YOUR CODE **
         #######################################################################
-
-        _, Y = self._preprocessor(x, y = y, training = False) # Do not forget
-        # trueValues = trueValues.numpy()
-        trueValues = self._preprocessor(Y)
-        predictedValues = self.postprocess(self.predict(x))
+        # trueValues = y
+        predictedValues = self.predict(x)
         # print(self.postprocess(predictedValues))
         # print("True: ", trueValues[:10])
         # print("Predicted: ",predictedValues[:10])
 
-        mse = mean_squared_error(trueValues, predictedValues)
+        mse = mean_squared_error(y, predictedValues)
         rmse = np.sqrt(mse)
 
         # print("MSE: ", mse, "\nRMSE: ", rmse)
@@ -304,7 +302,7 @@ def load_regressor():
     return trained_model
 
 
-def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model): 
+def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid): 
 
     # Ensure to add whatever inputs you deem necessary to this function
     """
@@ -340,8 +338,8 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
 
 
     params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[10, 20, 30, 40],
-              'learning_rate':[0.01, 0.02, 0.03, 0.04, 0.05]}
+              'nb_epoch':[5, 10],
+              'learning_rate':[0.0002, 0.0005, 0.008, 0.0012]}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
     best_params = gs.fit(x, y)
@@ -350,27 +348,15 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
     best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None}
     cur_best_score = None
 
-    # for rate in params['learning_rate']:
-    #     model.learning_rate = rate
-    #     for size in params['batch_size']:
-    #         model.batch_size = size 
-    #         for epoch in params['nb_epoch']:
-    #             model.nb_epoch = epoch
-    #             model.fit(x_train, y_train)
-    #             rmse = model.score(x_valid, y_valid)
-    #             print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
-                
-    #             if cur_best_score == None or rmse < cur_best_score:
-    #                 best_params['nb_epoch'] = epoch
-    #                 best_params['batch_size'] = size
-    #                 best_params['learning_rate'] = rate
     rmse_train_list = []
     rmse_valid_list = []
-
     for epoch in params['nb_epoch']:
-        model.nb_epoch = epoch
-        model.fit(x_train, y_train)
-        
+        # for size in params['batch_size']:
+        #     for rate in params['learning_rate']:
+
+        regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser='Adam', nb_epoch=epoch)
+
+        regressor.fit(x_train, y_train)
         # Calculate RMSE for training data
         rmse_train = model.score(x_train, y_train)
         rmse_train_list.append(rmse_train)
@@ -378,15 +364,14 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
         # Calculate RMSE for validation data
         rmse_valid = model.score(x_valid, y_valid)
         rmse_valid_list.append(rmse_valid)
-
-        print("RMSE for epoch=" + str(epoch) + " is " + str(rmse_valid))
-
+    #   print(str(epoch) + " " + str(size) + " " + str(rate) + " " + str(rmse))
+                
         if cur_best_score == None or rmse_valid < cur_best_score:
             best_params['nb_epoch'] = epoch
             # best_params['batch_size'] = size
             # best_params['learning_rate'] = rate
             cur_best_score = rmse_valid
-
+            save_regressor(regressor)
     print(best_params)
 
     # plot rmse against hyperparam
@@ -397,7 +382,8 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
     plt.ylabel('RMSE')
     plt.legend()
     plt.show()
-    return  best_params
+
+    return best_params
     # Note to self: Use held-out not cross-validation. So train/validation/test
     # We try a bunch of different hyperparameters on training
     # Then, we are picking the hyperparameters that have the best accuracy according to the validation split
@@ -428,7 +414,7 @@ def example_main():
     # Feel free to use another CSV reader tool
     # But remember that LabTS tests take Pandas DataFrame as inputs
     data = pd.read_csv("housing.csv") 
-
+    # data = data.sample(frac=1).reset_index(drop=True)
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
     # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
@@ -443,19 +429,19 @@ def example_main():
 
     x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
     y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
-
     # Training
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=8, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
+    # regressor = Regressor(x_train, batch_size=16, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
+    print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
     # regressor.fit(x_train, y_train)
-    RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, regressor)
-    save_regressor(regressor)
+    # save_regressor(regressor)
 
     # Error
+    regressor = load_regressor()
     error = regressor.score(x_test, y_test)
-    print("\nRegressor error(final): {}\n".format(error))
+    print("\nRegressor error: {}\n".format(error))
 
 
 if __name__ == "__main__":
