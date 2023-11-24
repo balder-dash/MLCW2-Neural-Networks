@@ -360,7 +360,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
                 regressor.fit(x_train, y_train)
                 rmse = regressor.score(x_valid, y_valid)
-                print(str(epoch) + " " + str(size) + " " + str(rate) + " " + str(rmse))
+                print(str(epoch) + "," + str(size) + "," + str(rate) + "," + str(rmse))
                 
                 if cur_best_score == None or rmse < cur_best_score:
                     best_params['nb_epoch'] = epoch
