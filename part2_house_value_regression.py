@@ -338,7 +338,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
 
     params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[5, 10],
+              'nb_epoch':[5, 10,15, 20],
               'learning_rate':[0.0002, 0.0005, 0.008, 0.0012]}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
@@ -350,19 +350,24 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
     rmse_train_list = []
     rmse_valid_list = []
+
     for epoch in params['nb_epoch']:
         # for size in params['batch_size']:
         #     for rate in params['learning_rate']:
-
-        regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser='Adam', nb_epoch=epoch)
+        print("Doing nb_epoch:", epoch)
+        regressor = Regressor(x_train, batch_size=8, learning_rate=0.001, optimiser='Adam', nb_epoch=epoch)
 
         regressor.fit(x_train, y_train)
         # Calculate RMSE for training data
-        rmse_train = model.score(x_train, y_train)
+        print("x_train:", type(x_train),"\n", x_train[:2])
+        print("\ny_train:", type(y_train),"\n", y_train[:2])
+        rmse_train = regressor.score(x_train, y_train)
         rmse_train_list.append(rmse_train)
 
-        # Calculate RMSE for validation data
-        rmse_valid = model.score(x_valid, y_valid)
+        # Calculate RMSE for validation data, causing errors atm why
+        print("\nx_valid:", type(x_valid),"\n", x_valid[:2])
+        print("\ny_valid:", type(y_valid),"\n", y_valid[:2])
+        rmse_valid = regressor.score(x_valid, y_valid)
         rmse_valid_list.append(rmse_valid)
     #   print(str(epoch) + " " + str(size) + " " + str(rate) + " " + str(rmse))
                 
@@ -434,7 +439,7 @@ def example_main():
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
     # regressor = Regressor(x_train, batch_size=16, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
-    print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
+    RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid)
     # regressor.fit(x_train, y_train)
     # save_regressor(regressor)
 
