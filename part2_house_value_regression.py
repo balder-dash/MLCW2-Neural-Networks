@@ -251,8 +251,8 @@ class Regressor():
         # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
         # trueValues = trueValues.numpy()
         trueValues = y
-        predictedValues = self.predict(x)
-        print(self.postprocess(predictedValues))
+        predictedValues = self.postprocess(self.predict(x))
+        # print(self.postprocess(predictedValues))
         # print("True: ", trueValues[:10])
         # print("Predicted: ",predictedValues[:10])
 
@@ -417,7 +417,7 @@ def example_main():
     # This example trains on the whole available dataset. 
     # You probably want to separate some held-out data 
     # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=8, learning_rate=0.005, optimiser='Adam', nb_epoch = 10)
+    regressor = Regressor(x_train, batch_size=8, learning_rate=0.001, optimiser='Adam', nb_epoch = 20)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
 
