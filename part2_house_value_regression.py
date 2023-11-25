@@ -11,6 +11,7 @@ from sklearn.compose import make_column_transformer
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
+from sklearn.utils import shuffle
 # import seaborn as sns
 
 class Regressor():
@@ -77,27 +78,38 @@ class Regressor():
         # Return preprocessed x and y, return None for y if it was None
         # return x, (y if isinstance(y, pd.DataFrame) else None)
 
-
         # Fill in the NaNs in the dataset with the column mean
         values = x[["longitude", "latitude", "housing_median_age", "total_rooms", "total_bedrooms", "population", "households", "median_income"]].mean()
         values['ocean_proximity'] = 'INLAND'
         x = x.fillna(value=values)
-
         # Use one hot encoding to encode the ocean proximity column
-        transformer = make_column_transformer((OneHotEncoder(), ['ocean_proximity']), remainder='passthrough')
+        """transformer = make_column_transformer((OneHotEncoder(), ['ocean_proximity']), remainder='passthrough')
         transformed = transformer.fit_transform(x)
-        transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())
-
+        transformed_x = pd.DataFrame(transformed, columns=transformer.get_feature_names_out())"""
+        x['ocean_proximity'] = pd.Categorical(x['ocean_proximity'], categories=['INLAND', '<1H OCEAN', 'NEAR BAY', 'NEAR OCEAN', 'ISLAND'])
+        transformed = pd.get_dummies(data=x, columns=['ocean_proximity'])
+        transformed_x = np.vstack(transformed.values).astype(float)
+        # print(np.isnan(transformed_x).any())
+        tensor_x = torch.tensor(transformed_x, dtype=torch.float32)
         # Tensors??
+        # tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
+        # print(torch.isnan(tensor_x).any())
+        col_maximum = tensor_x.max(dim=0).values
+        for i in range(len(col_maximum)):
+            if col_maximum[i] == 0:
+                col_maximum[i] = 1
 
-        tensor_x = torch.tensor(transformed_x.values, dtype=torch.float32)
-        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (tensor_x.max(dim=0).values - tensor_x.min(dim=0).values)
+        # print(temp)
+
+        tensor_x = (tensor_x - tensor_x.min(dim=0).values) / (col_maximum - tensor_x.min(dim=0).values)
+        # print(tensor_x.shape)       
+        # print(torch.isnan(tensor_x).any())
 
         if y is not None:
             tensor_y = torch.tensor(y.values, dtype=torch.float32)
-            y_min = tensor_y.min().item()
-            y_max = tensor_y.max().item()
-            tensor_y = (tensor_y - y_min) / (y_max - y_min)
+            self.y_min = tensor_y.min().item()
+            self.y_max = tensor_y.max().item()
+            tensor_y = (tensor_y - self.y_min) / (self.y_max - self.y_min)
         else:
             tensor_y = None
 
@@ -119,9 +131,8 @@ class Regressor():
         #######################################################################
 
     def postprocess(self, y):
-        tensor_y = torch.tensor(y.values, dtype=torch.float32)
-        tensor_y = (tensor_y * (self.y_max - self.y_min)) + self.y_min
-        return tensor_y
+        denormalised_y = (y * (self.y_max - self.y_min)) + self.y_min
+        return denormalised_y
         
     def fit(self, x, y):
         """
@@ -141,33 +152,22 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        X, Y = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
-        X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
-        y_train.reshape(-1, 1)
-
-        # X_train = torch.tensor(X_train, dtype=torch.float32)
-        # X_val = torch.tensor(X_val, dtype=torch.float32)
-        # y_train = torch.tensor(y_train, dtype=torch.float32) # Might have to reshape these, check later.
-        # y_val = torch.tensor(y_val, dtype=torch.float32) # Might have to reshape these, check later.
+        X_train, y_train = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
 
         # How are we defining the model...
-
         self.model = nn.Sequential(
             nn.Linear(self.input_size, 18),
             nn.ReLU(),
-            nn.Linear(18, 12),
+            nn.Linear(18, 14),
             nn.ReLU(),
-            nn.Linear(12, 8),
+            nn.Linear(14, 7),
             nn.ReLU(),
-            nn.Linear(8, 4),
+            nn.Linear(7, 4),
             nn.ReLU(),
             nn.Linear(4, 1)
         ) # Arbitrary numbers...
 
         loss_func = nn.MSELoss()
-        
-        # Choose Adam or AdaDelta as an optimiser.
-        # Experiment..?
 
         optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay = 1e-5) # Interesting...
         scheduler = StepLR(optimiser, step_size=5, gamma=0.2) # To be tuned
@@ -224,7 +224,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return yHat.numpy()*500000 if torch.is_tensor(yHat) else yHat.detach().numpy()
+            return self.postprocess(yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy())
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -248,29 +248,21 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
-
-        # trueValues = trueValues.numpy()
+        # _, Y = self._preprocessor(x, y = y, training = False) # Do not forget
+        # trueValues = self.postprocess(Y.numpy())
         trueValues = y
         predictedValues = self.predict(x)
 
-        # print("True: ", trueValues[:10])
-        # print("Predicted: ",predictedValues[:10])
-
-        mse = mean_squared_error(trueValues, predictedValues)
+        mse = mean_squared_error(trueValues, predictedValues) # Use trueValues or y, depending on if I preprocess
         rmse = np.sqrt(mse)
 
         # print("MSE: ", mse, "\nRMSE: ", rmse)
 
-        # return rmse
+        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
+        # Use trueValues or y, depending on if I preprocess
 
-        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
-        # # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
-
-        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
-        # plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
-
-        # # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
+        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10) 
+        # plt.plot(predictedValues, predictedValues, color='blue', label='Predicted Values', linestyle='-')
         # plt.xlabel("Predicted Values")
         # plt.ylabel("Values")
         # plt.legend()
@@ -305,7 +297,7 @@ def load_regressor():
     return trained_model
 
 
-def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model): 
+def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid): 
 
     # Ensure to add whatever inputs you deem necessary to this function
     """
@@ -323,56 +315,40 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid, model):
     #######################################################################
     #                       ** START OF YOUR CODE **
     #######################################################################
-    # params = {'batch_size':[8, 16, 32, 64],
-    #           'nb_epoch':[200, 400, 600, 800, 1000]}
-    # gs = GridSearchCV(estimator=model, param_grid=params, cv=10)
 
-    # best_params = gs.fit(x_train, y_train)
-    # print("Hyperparam tuning best accuracy: " + str(gs.best_score_))
-
-    # surely plotting a graph is better than running over a bunch of values. How? idk
-    # the idea is to plot a graph of accuracy vs nb_epochs, with two lines representing training and validation
-    # where validation accuracy starts dropping, thats optimal no. of epochs. aka early stopping
-    # this solves one hyperparam. problem, maybe. This method could apply to other hparams too?
-    # am I tired? yes. thanks for asking
-
-    # return best_params # Return the chosen hyper parameters
-    # Parameters to potentially tune: batch size, number of epochs, dropout ...
-
-
-    params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[200, 400, 600, 800, 1000],
-              'learning_rate':[0.01, 0.02, 0.03, 0.04, 0.05]}
+    params = {'batch_size':[8, 16, 24, 32, 40, 48],
+              'nb_epoch':[5, 10, 15],
+              'learning_rate':[0.0002, 0.0005, 0.0008],
+              'opt':['AdaDelta', 'Adam']}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
     best_params = gs.fit(x, y)
     print("Hyperparam tuning best accuracy: " + str(gs.best_score_))"""
 
-    best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None}
+    best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None, 'opt':None}
     cur_best_score = None
 
-    for rate in params['learning_rate']:
-        model.learning_rate = rate
+    print("Epoch | Batch Size | Learning Rate | Optimiser | RMSE")
+    for epoch in params['nb_epoch']:
         for size in params['batch_size']:
-            model.batch_size = size 
-            for epoch in params['nb_epoch']:
-                model.nb_epoch = epoch
-                model.fit(x_train, y_train)
-                rmse = model.score(x_valid, y_valid)
-                print("RMSE for nb_epoch=" + str(epoch) + " & batch_size=" + str(size) + " & learning_rate=" + str(rate) + " is " + str(rmse))
-                
-                if cur_best_score == None or rmse < cur_best_score:
-                    best_params['nb_epoch'] = epoch
-                    best_params['batch_size'] = size
-                    best_params['learning_rate'] = rate
+            for rate in params['learning_rate']:
+                for opt in params['opt']:
+                    regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
+
+                    regressor.fit(x_train, y_train)
+                    rmse = regressor.score(x_valid, y_valid)
+                    print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + opt + "," + str(rmse) + "],")
+                    
+                    if cur_best_score == None or rmse < cur_best_score:
+                        best_params['nb_epoch'] = epoch
+                        best_params['batch_size'] = size
+                        best_params['learning_rate'] = rate
+                        best_params['opt'] = opt
+                        cur_best_score = rmse
+                        save_regressor(regressor)
 
 
     return  best_params
-    # Note to self: Use held-out not cross-validation. So train/validation/test
-    # We try a bunch of different hyperparameters on training
-    # Then, we are picking the hyperparameters that have the best accuracy according to the validation split
-
-    # Do we need confidence intervals? Check for P-hacking? Ehhh
 
     # Hyperparameters to tune: 
     # learning rate(recommended adaptive ones include Adam and AdaDelta, from the lecture), 
@@ -398,29 +374,31 @@ def example_main():
     # Feel free to use another CSV reader tool
     # But remember that LabTS tests take Pandas DataFrame as inputs
     data = pd.read_csv("housing.csv") 
+    data = data.sample(frac=1).reset_index(drop=True)
 
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
-    # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
-    train_rows = round(0.6*total_rows)
-    valid_rows = round(0.2*total_rows)
+    
+    train_rows = round(0.8*total_rows)
+    valid_rows = round(0.1*total_rows)
 
     x_train = data.loc[:train_rows, data.columns != output_label]
     y_train = data.loc[:train_rows, [output_label]]
 
-    x_valid = data.loc[train_rows:train_rows+valid_rows:, data.columns != output_label]
+    x_valid = data.loc[train_rows:train_rows+valid_rows, data.columns != output_label]
     y_valid = data.loc[train_rows:train_rows+valid_rows, [output_label]]
 
     x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
     y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
 
     # Training
-    # This example trains on the whole available dataset. 
-    # You probably want to separate some held-out data 
-    # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=16, learning_rate=0.01, optimiser='Adam', nb_epoch = 10)
+    # make sure the model isn't overfitting
+    regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
+
+    # Training and validation (for Hyperparam Tuning)
+    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Error
     error = regressor.score(x_test, y_test)
