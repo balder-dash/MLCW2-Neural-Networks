@@ -153,30 +153,21 @@ class Regressor():
         #######################################################################
 
         X_train, y_train = self._preprocessor(x, y = y, training = True) # Do not forget # This will give us the training dataset for x and y.
-        # X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=2, shuffle=True)
-        # y_train.reshape(-1, 1)
-
-        # X_train = torch.tensor(X_train, dtype=torch.float32)
-        # X_val = torch.tensor(X_val, dtype=torch.float32)
-        # y_train = torch.tensor(y_train, dtype=torch.float32) # Might have to reshape these, check later.
-        # y_val = torch.tensor(y_val, dtype=torch.float32) # Might have to reshape these, check later.
 
         # How are we defining the model...
-
         self.model = nn.Sequential(
-            nn.Linear(self.input_size, 10),
+            nn.Linear(self.input_size, 18),
             nn.ReLU(),
-            nn.Linear(10, 8),
+            nn.Linear(18, 14),
             nn.ReLU(),
-            nn.Linear(8, 5),
+            nn.Linear(14, 7),
             nn.ReLU(),
-            nn.Linear(5, 1)
+            nn.Linear(7, 4),
+            nn.ReLU(),
+            nn.Linear(4, 1)
         ) # Arbitrary numbers...
 
         loss_func = nn.MSELoss()
-        
-        # Choose Adam or AdaDelta as an optimiser.
-        # Experiment..?
 
         optimiser = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate, weight_decay = 1e-5) # Interesting...
         scheduler = StepLR(optimiser, step_size=5, gamma=0.2) # To be tuned
@@ -257,29 +248,20 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        # _, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
-        # trueValues = trueValues.numpy()
-        trueValues = y
+        # _, Y = self._preprocessor(x, y = y, training = False) # Do not forget
+        # trueValues = self.postprocess(Y.numpy())
         predictedValues = self.predict(x)
-        # print(self.postprocess(predictedValues))
-        # print("True: ", trueValues[:10])
-        # print("Predicted: ",predictedValues[:10])
 
-        mse = mean_squared_error(trueValues, predictedValues)
+        mse = mean_squared_error(y, predictedValues) # Use trueValues or y, depending on if I preprocess
         rmse = np.sqrt(mse)
 
         # print("MSE: ", mse, "\nRMSE: ", rmse)
 
-        # # return rmse
+        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
+        # Use trueValues or y, depending on if I preprocess
 
-        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values. I have some doubts as to whther this is correct or not
-        # # plot_data = pd.DataFrame({'True Values': trueValues, 'Predicted Values': predictedValues})
-
-        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10)
-        # # plt.scatter(x=predictedValues, y=predictedValues, color='blue', label='Predicted Values', s=10)
+        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10) 
         # plt.plot(predictedValues, predictedValues, color='blue', label='Predicted Values', linestyle='-')
-
-        # # sns.regplot(x='Predicted Values', y='True Values', data=plot_data, scatter=False, line_kws={'color': 'blue', 'label': 'Predicted Values'})
         # plt.xlabel("Predicted Values")
         # plt.ylabel("Values")
         # plt.legend()
@@ -332,22 +314,6 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #######################################################################
     #                       ** START OF YOUR CODE **
     #######################################################################
-    # params = {'batch_size':[8, 16, 32, 64],
-    #           'nb_epoch':[200, 400, 600, 800, 1000]}
-    # gs = GridSearchCV(estimator=model, param_grid=params, cv=10)
-
-    # best_params = gs.fit(x_train, y_train)
-    # print("Hyperparam tuning best accuracy: " + str(gs.best_score_))
-
-    # surely plotting a graph is better than running over a bunch of values. How? idk
-    # the idea is to plot a graph of accuracy vs nb_epochs, with two lines representing training and validation
-    # where validation accuracy starts dropping, thats optimal no. of epochs. aka early stopping
-    # this solves one hyperparam. problem, maybe. This method could apply to other hparams too?
-    # am I tired? yes. thanks for asking
-
-    # return best_params # Return the chosen hyper parameters
-    # Parameters to potentially tune: batch size, number of epochs, dropout ...
-
 
     params = {'batch_size':[8, 16, 24, 32, 40, 48],
               'nb_epoch':[5, 10, 15],
@@ -382,11 +348,6 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
 
     return  best_params
-    # Note to self: Use held-out not cross-validation. So train/validation/test
-    # We try a bunch of different hyperparameters on training
-    # Then, we are picking the hyperparameters that have the best accuracy according to the validation split
-
-    # Do we need confidence intervals? Check for P-hacking? Ehhh
 
     # Hyperparameters to tune: 
     # learning rate(recommended adaptive ones include Adam and AdaDelta, from the lecture), 
@@ -413,9 +374,10 @@ def example_main():
     # But remember that LabTS tests take Pandas DataFrame as inputs
     data = pd.read_csv("housing.csv") 
     data = data.sample(frac=1).reset_index(drop=True)
+
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
-    # print(total_rows, round(0.8*total_rows), round(0.1*total_rows), round(0.1*total_rows))
+    
     train_rows = round(0.8*total_rows)
     valid_rows = round(0.1*total_rows)
 
@@ -429,13 +391,13 @@ def example_main():
     y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
 
     # Training
-    # This example trains on the whole available dataset. 
-    # You probably want to separate some held-out data 
-    # to make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=16, learning_rate=0.0012, optimiser='Adam', nb_epoch = 10)
-    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
+    # make sure the model isn't overfitting
+    regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
+
+    # Training and validation (for Hyperparam Tuning)
+    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Error
     error = regressor.score(x_test, y_test)
