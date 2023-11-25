@@ -248,27 +248,28 @@ class Regressor():
         #                       ** START OF YOUR CODE **
         #######################################################################
 
-        # _, Y = self._preprocessor(x, y = y, training = False) # Do not forget
-        # trueValues = self.postprocess(Y.numpy())
-        predictedValues = self.predict(x)
+        inputValues, trueValues = self._preprocessor(x, y = y, training = False) # Do not forget
 
-        mse = mean_squared_error(y, predictedValues) # Use trueValues or y, depending on if I preprocess
+        with torch.no_grad():
+            predictedValues = self.model(inputValues)
+
+        mse = mean_squared_error(self.postprocess(trueValues.numpy()), self.postprocess(predictedValues.numpy()))
         rmse = np.sqrt(mse)
 
-        # print("MSE: ", mse, "\nRMSE: ", rmse)
+        print("\nRMSE: ", rmse)
 
-        # # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
-        # Use trueValues or y, depending on if I preprocess
+        # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
+        plot_true = self.postprocess(trueValues.numpy())
+        plot_predicted = self.postprocess(predictedValues.numpy())
+        plt.scatter(x=plot_predicted, y=plot_true, color='red', label='True Values', s=10) 
+        plt.plot(plot_predicted, plot_predicted, color='blue', label='Predicted Values', linestyle='-')
+        plt.xlabel("Predicted Values")
+        plt.ylabel("Values")
+        plt.legend()
+        plt.title('Regression Plot: True vs Predicted Values')
+        plt.show()
 
-        # plt.scatter(x=predictedValues, y=trueValues, color='red', label='True Values', s=10) 
-        # plt.plot(predictedValues, predictedValues, color='blue', label='Predicted Values', linestyle='-')
-        # plt.xlabel("Predicted Values")
-        # plt.ylabel("Values")
-        # plt.legend()
-        # plt.title('Regression Plot: True vs Predicted Values')
-        # plt.show()
-
-        return rmse 
+        return rmse
 
         #######################################################################
         #                       ** END OF YOUR CODE **
