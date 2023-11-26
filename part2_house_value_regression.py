@@ -106,10 +106,10 @@ class Regressor():
         # print(torch.isnan(tensor_x).any())
 
         if y is not None:
+            y_mean = y["median_house_value"].mean()
+            # print("filling NaN's")
+            y = y.fillna(value=y_mean)
             tensor_y = torch.tensor(y.values, dtype=torch.float32)
-            self.y_min = tensor_y.min().item()
-            self.y_max = tensor_y.max().item()
-            tensor_y = (tensor_y - self.y_min) / (self.y_max - self.y_min)
         else:
             tensor_y = None
 
@@ -130,9 +130,9 @@ class Regressor():
         #                       ** END OF YOUR CODE **
         #######################################################################
 
-    def postprocess(self, y):
-        denormalised_y = (y * (self.y_max - self.y_min)) + self.y_min
-        return denormalised_y
+    # def postprocess(self, y):
+    #     denormalised_y = (y * (self.y_max - self.y_min)) + self.y_min
+    #     return denormalised_y
         
     def fit(self, x, y):
         """
@@ -224,7 +224,7 @@ class Regressor():
         with torch.no_grad():
             #self.model.eval()
             yHat = self.model(X)
-            return self.postprocess(yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy())
+            return yHat.numpy() if torch.is_tensor(yHat) else yHat.detach().numpy()
 
         #######################################################################
         #                       ** END OF YOUR CODE **
@@ -253,21 +253,21 @@ class Regressor():
         with torch.no_grad():
             predictedValues = self.model(inputValues)
 
-        mse = mean_squared_error(self.postprocess(trueValues.numpy()), self.postprocess(predictedValues.numpy()))
+        mse = mean_squared_error(trueValues, predictedValues)
         rmse = np.sqrt(mse)
 
-        print("\nRMSE: ", rmse)
+        # print("\nRMSE: ", rmse)
 
         # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
-        plot_true = self.postprocess(trueValues.numpy())
-        plot_predicted = self.postprocess(predictedValues.numpy())
-        plt.scatter(x=plot_predicted, y=plot_true, color='red', label='True Values', s=10) 
-        plt.plot(plot_predicted, plot_predicted, color='blue', label='Predicted Values', linestyle='-')
-        plt.xlabel("Predicted Values")
-        plt.ylabel("Values")
-        plt.legend()
-        plt.title('Regression Plot: True vs Predicted Values')
-        plt.show()
+        # plot_true = trueValues.numpy()
+        # plot_predicted = predictedValues.numpy()
+        # plt.scatter(x=plot_predicted, y=plot_true, color='red', label='True Values', s=10) 
+        # plt.plot(plot_predicted, plot_predicted, color='blue', label='Predicted Values', linestyle='-')
+        # plt.xlabel("Predicted Values")
+        # plt.ylabel("Values")
+        # plt.legend()
+        # plt.title('Regression Plot: True vs Predicted Values')
+        # plt.show()
 
         return rmse
 
@@ -317,38 +317,62 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #######################################################################
 
     params = {'batch_size':[8, 16, 24, 32, 40, 48],
-              'nb_epoch':[5, 10, 15],
-              'learning_rate':[0.0002, 0.0005, 0.0008],
+              'nb_epoch':[5, 10, 15, 20, 25],
+              'learning_rate':[0.015, 0.012, 0.01, 0.0075, 0.005],
               'opt':['AdaDelta', 'Adam']}
-    """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
-
-    best_params = gs.fit(x, y)
-    print("Hyperparam tuning best accuracy: " + str(gs.best_score_))"""
 
     best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None, 'opt':None}
     cur_best_score = None
 
-    print("Epoch | Batch Size | Learning Rate | Optimiser | RMSE")
-    for epoch in params['nb_epoch']:
-        for size in params['batch_size']:
-            for rate in params['learning_rate']:
-                for opt in params['opt']:
-                    regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
+    # for epoch in params['nb_epoch']:
+    #     for size in params['batch_size']:
+    #         for rate in params['learning_rate']:
+    #             for opt in params['opt']:
+    #                 regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
 
-                    regressor.fit(x_train, y_train)
-                    rmse = regressor.score(x_valid, y_valid)
-                    print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + opt + "," + str(rmse) + "],")
+    #                 regressor.fit(x_train, y_train)
+    #                 rmse = regressor.score(x_valid, y_valid)
+    #                 print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + opt + "," + str(rmse) + "],")
                     
-                    if cur_best_score == None or rmse < cur_best_score:
-                        best_params['nb_epoch'] = epoch
-                        best_params['batch_size'] = size
-                        best_params['learning_rate'] = rate
-                        best_params['opt'] = opt
-                        cur_best_score = rmse
-                        save_regressor(regressor)
+    #                 if cur_best_score == None or rmse < cur_best_score:
+    #                     best_params['nb_epoch'] = epoch
+    #                     best_params['batch_size'] = size
+    #                     best_params['learning_rate'] = rate
+    #                     best_params['opt'] = opt
+    #                     cur_best_score = rmse
+    #                     save_regressor(regressor)
 
+    rmse_train_list = []
+    rmse_valid_list = []
 
-    return  best_params
+    # for epoch in params['nb_epoch']:
+    for rate in params['learning_rate']:
+        shuffled_indices = np.random.permutation(x_train.shape[0])
+        x_train = x_train.iloc[shuffled_indices]
+        y_train = y_train.iloc[shuffled_indices]
+        regressor = Regressor(x_train, batch_size=16, learning_rate=rate, optimiser="AdaDelta", nb_epoch=10)
+        regressor.fit(x_train, y_train)
+        rmse_valid = regressor.score(x_valid, y_valid)
+        rmse_train = regressor.score(x_train, y_train)
+        print("\nRMSE at", rate, ":\ntraining:", rmse_train, "\nvalidation:", rmse_valid)
+
+        rmse_train_list.append(rmse_train)
+        rmse_valid_list.append(rmse_valid)
+
+        if cur_best_score == None or rmse_valid < cur_best_score:
+            best_params['learning_rate'] = rate
+            cur_best_score = rmse_valid
+            save_regressor(regressor)
+    # plot sth
+    plt.plot(params['learning_rate'], rmse_train_list, color = "red", label='Training RMSE')
+    plt.plot(params['learning_rate'], rmse_valid_list, color = "blue", label='Validation RMSE')
+    plt.xlabel('Learning rates')
+    plt.ylabel('Root Mean Squared Error (RMSE)')
+    plt.title('RMSE vs Learning Rates')
+    plt.legend()
+    plt.savefig('rmse_plot_learning_rate4.png')  
+    plt.show()
+    return best_params
 
     # Hyperparameters to tune: 
     # learning rate(recommended adaptive ones include Adam and AdaDelta, from the lecture), 
@@ -393,15 +417,18 @@ def example_main():
 
     # Training
     # make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
-    regressor.fit(x_train, y_train)
-    save_regressor(regressor)
+    # regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
+    # regressor.fit(x_train, y_train)
+    # save_regressor(regressor)
+    print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Training and validation (for Hyperparam Tuning)
     # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Error
+    regressor = load_regressor()
     error = regressor.score(x_test, y_test)
+    # error = regressor.score(x_test, y_test)
     print("\nRegressor error: {}\n".format(error))
 
 
