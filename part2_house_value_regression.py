@@ -1,3 +1,4 @@
+import sys
 import torch
 import torch.nn as nn
 import torch.optim
@@ -297,7 +298,7 @@ def load_regressor():
     return trained_model
 
 
-def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid): 
+def RegressorHyperParameterSearch(data): 
 
     # Ensure to add whatever inputs you deem necessary to this function
     """
@@ -315,11 +316,12 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #######################################################################
     #                       ** START OF YOUR CODE **
     #######################################################################
+    output_label = "median_house_value"
 
-    params = {'batch_size':[8, 16, 24, 32, 40, 48],
+    params = {'batch_size':[16, 24, 32, 40, 48],
               'nb_epoch':[5, 10, 15],
-              'learning_rate':[0.0002, 0.0005, 0.0008],
-              'opt':['AdaDelta', 'Adam']}
+              'learning_rate':[0.0012],
+              'opt':['Adam']}
     """gs = GridSearchCV(estimator=self.model, param_grid=params, cv=10)
 
     best_params = gs.fit(x, y)
@@ -333,6 +335,19 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
         for size in params['batch_size']:
             for rate in params['learning_rate']:
                 for opt in params['opt']:
+                    data = data.sample(frac=1).reset_index(drop=True)
+
+                    # Splitting input and output, and the dataset
+                    total_rows = data.shape[0]
+                    train_rows = round(0.7*total_rows)
+
+                    x_train = data.loc[:train_rows, data.columns != output_label]
+                    y_train = data.loc[:train_rows, [output_label]]
+
+                    x_valid = data.loc[train_rows:, data.columns != output_label]
+                    y_valid = data.loc[train_rows:, [output_label]]
+
+
                     regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
 
                     regressor.fit(x_train, y_train)
@@ -366,44 +381,69 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
 
 
 
-def example_main():
+def train_main():
 
     output_label = "median_house_value"
-
-    # Use pandas to read CSV data as it contains various object types
-    # Feel free to use another CSV reader tool
-    # But remember that LabTS tests take Pandas DataFrame as inputs
     data = pd.read_csv("housing.csv") 
     data = data.sample(frac=1).reset_index(drop=True)
 
     # Splitting input and output, and the dataset
     total_rows = data.shape[0]
-    
     train_rows = round(0.8*total_rows)
-    valid_rows = round(0.1*total_rows)
 
     x_train = data.loc[:train_rows, data.columns != output_label]
     y_train = data.loc[:train_rows, [output_label]]
+    x_test = data.loc[train_rows:, data.columns != output_label]
+    y_test = data.loc[train_rows:, [output_label]]
 
-    x_valid = data.loc[train_rows:train_rows+valid_rows, data.columns != output_label]
-    y_valid = data.loc[train_rows:train_rows+valid_rows, [output_label]]
-
-    x_test = data.loc[train_rows+valid_rows:total_rows+1, data.columns != output_label]
-    y_test = data.loc[train_rows+valid_rows:total_rows+1, [output_label]]
-
-    # Training
-    # make sure the model isn't overfitting
-    regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
+    # Fitting the model
+    regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='Adam', nb_epoch = 10)
     regressor.fit(x_train, y_train)
     save_regressor(regressor)
-
-    # Training and validation (for Hyperparam Tuning)
-    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Error
     error = regressor.score(x_test, y_test)
     print("\nRegressor error: {}\n".format(error))
 
 
+def load_main():
+
+    output_label = "median_house_value"
+    data = pd.read_csv("housing.csv") 
+    data = data.sample(frac=1).reset_index(drop=True)
+
+    x_valid = data.loc[:, data.columns != output_label]
+    y_valid = data.loc[:, [output_label]]
+
+    # Training
+    # make sure the model isn't overfitting
+    regressor = load_regressor()
+
+    # Error
+    error = regressor.score(x_valid, y_valid)
+    print("\nRegressor error: {}\n".format(error))
+
+def hyperparam_main():
+    data = pd.read_csv("housing.csv") 
+
+    # Training and validation (for Hyperparam Tuning)
+    print(RegressorHyperParameterSearch(data))
+
+
 if __name__ == "__main__":
-    example_main()
+    print(sys.argv)
+    if len(sys.argv) > 1:
+            if sys.argv[1] == 'l':
+                print("Loading the model pickle file")
+                load_main()
+            elif sys.argv[1] == 't':
+                print("Running the neural network training method")
+                train_main()
+            elif sys.argv == 'h':
+                print("Running the hyperparameter tuning method")
+                hyperparam_main()
+            else:
+                print("Invalid command line parameter")
+    else:
+        print("Loading the model from a pickle file")
+        load_main()
