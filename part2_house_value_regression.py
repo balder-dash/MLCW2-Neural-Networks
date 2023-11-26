@@ -316,9 +316,9 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #                       ** START OF YOUR CODE **
     #######################################################################
 
-    params = {'batch_size':[8, 16, 24, 32, 40, 48],
+    params = {'batch_size':[8, 16, 24, 32],
               'nb_epoch':[5, 10, 15, 20, 25],
-              'learning_rate':[0.015, 0.012, 0.01, 0.0075, 0.005],
+              'learning_rate':[0.005, 0.004, 0.003, 0.002, 0.001],
               'opt':['AdaDelta', 'Adam']}
 
     best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None, 'opt':None}
@@ -345,8 +345,9 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     rmse_train_list = []
     rmse_valid_list = []
 
-    # for epoch in params['nb_epoch']:
     for rate in params['learning_rate']:
+    # for size in params['batch_size']:
+    # for epoch in params['nb_epoch']:
         shuffled_indices = np.random.permutation(x_train.shape[0])
         x_train = x_train.iloc[shuffled_indices]
         y_train = y_train.iloc[shuffled_indices]
@@ -370,7 +371,11 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     plt.ylabel('Root Mean Squared Error (RMSE)')
     plt.title('RMSE vs Learning Rates')
     plt.legend()
-    plt.savefig('rmse_plot_learning_rate4.png')  
+
+    best_params_text = f"Best Params:\nEpochs: {best_params['nb_epoch']}\nBatch Size: {best_params['batch_size']}\nLearning Rate: {best_params['learning_rate']}\nOptimizer: {best_params['opt']}"
+    plt.text(1, 0.95, best_params_text, transform=plt.gcf().transFigure, fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    plt.savefig('rmse_plot_learning_rate5.png', bbox_inches='tight')  
     plt.show()
     return best_params
 
