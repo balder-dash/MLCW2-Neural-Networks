@@ -256,18 +256,21 @@ class Regressor():
         mse = mean_squared_error(trueValues, predictedValues)
         rmse = np.sqrt(mse)
 
-        # print("\nRMSE: ", rmse)
-
         # This plot SHOULD give a more intuitive visualisation of predicted vs true values.
-        # plot_true = trueValues.numpy()
-        # plot_predicted = predictedValues.numpy()
-        # plt.scatter(x=plot_predicted, y=plot_true, color='red', label='True Values', s=10) 
-        # plt.plot(plot_predicted, plot_predicted, color='blue', label='Predicted Values', linestyle='-')
-        # plt.xlabel("Predicted Values")
-        # plt.ylabel("Values")
-        # plt.legend()
-        # plt.title('Regression Plot: True vs Predicted Values')
-        # plt.show()
+        plot_true = trueValues.numpy()
+        plot_predicted = predictedValues.numpy()
+        plt.scatter(x=plot_predicted, y=plot_true, color='red', label='True Values', s=10) 
+        plt.plot(plot_predicted, plot_predicted, color='blue', label='Predicted Values', linestyle='-')
+        plt.xlabel("Predicted Values")
+        plt.ylabel("Values")
+        plt.legend()
+        plt.title('Regression Plot: True vs Predicted Values')
+
+        rmse_text = f"RMSE: {rmse}"
+        plt.text(0.4, 1, rmse_text, transform=plt.gcf().transFigure, fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+        plt.savefig('final-rmse.png', bbox_inches='tight')
+        plt.show()
 
         return rmse
 
@@ -317,66 +320,55 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #######################################################################
 
     params = {'batch_size':[8, 16, 32, 64],
-              'nb_epoch':[5, 10, 15, 20, 25],
+              'nb_epoch':[7, 8, 9, 10],
               'learning_rate':[0.003, 0.0025, 0.002, 0.0015, 0.001, 0.0005],
               'opt':['AdaDelta', 'Adam']}
 
     best_params = {'nb_epoch':None, 'batch_size':None, 'learning_rate':None, 'opt':'Adam'}
     cur_best_score = None
 
-    # for epoch in params['nb_epoch']:
-    #     for size in params['batch_size']:
-    #         for rate in params['learning_rate']:
-    #             for opt in params['opt']:
-    #                 regressor = Regressor(x_train, batch_size=size, learning_rate=rate, optimiser=opt, nb_epoch=epoch)
-
-    #                 regressor.fit(x_train, y_train)
-    #                 rmse = regressor.score(x_valid, y_valid)
-    #                 print("[" + str(epoch) + "," + str(size) + "," + str(rate) + "," + opt + "," + str(rmse) + "],")
-                    
-    #                 if cur_best_score == None or rmse < cur_best_score:
-    #                     best_params['nb_epoch'] = epoch
-    #                     best_params['batch_size'] = size
-    #                     best_params['learning_rate'] = rate
-    #                     best_params['opt'] = opt
-    #                     cur_best_score = rmse
-    #                     save_regressor(regressor)
-
     rmse_train_list = []
     rmse_valid_list = []
 
     # for rate in params['learning_rate']:
-    for size in params['batch_size']:
-    # for epoch in params['nb_epoch']:
+    # for size in params['batch_size']:
+    for epoch in params['nb_epoch']:
         shuffled_indices = np.random.permutation(x_train.shape[0])
         x_train = x_train.iloc[shuffled_indices]
         y_train = y_train.iloc[shuffled_indices]
-        regressor = Regressor(x_train, batch_size=size, learning_rate=0.0025, optimiser="Adam", nb_epoch=10)
+        regressor = Regressor(x_train, batch_size=8, learning_rate=0.0025, optimiser="Adam", nb_epoch=epoch)
         regressor.fit(x_train, y_train)
         rmse_valid = regressor.score(x_valid, y_valid)
         rmse_train = regressor.score(x_train, y_train)
-        print("\nRMSE at", size, ":\ntraining:", rmse_train, "\nvalidation:", rmse_valid)
+        print("\nRMSE at", epoch, ":\ntraining:", rmse_train, "\nvalidation:", rmse_valid)
 
-        rmse_train_list.append(rmse_train)
-        rmse_valid_list.append(rmse_valid)
+        # To handle cases where model doesnt seem to train properly
+        if rmse_train < 100000:
+            rmse_train_list.append(rmse_train)
+            rmse_valid_list.append(rmse_valid)
+        else:
+            print("Error at ", epoch)
+            rmse_train_list.append(rmse_train_list[-1])
+            rmse_valid_list.append(rmse_valid_list[-1])
 
         if cur_best_score == None or rmse_valid < cur_best_score:
             best_params['learning_rate'] = 0.0025
-            best_params['batch_size'] = size
+            best_params['batch_size'] = 8
+            best_params['nb_epoch'] = epoch
             cur_best_score = rmse_valid
             save_regressor(regressor)
     # plot sth
-    plt.plot(params['batch_size'], rmse_train_list, color = "red", label='Training RMSE')
-    plt.plot(params['batch_size'], rmse_valid_list, color = "blue", label='Validation RMSE')
-    plt.xlabel('Batch sizes')
+    plt.plot(params['nb_epoch'], rmse_train_list, color = "red", label='Training RMSE')
+    plt.plot(params['nb_epoch'], rmse_valid_list, color = "blue", label='Validation RMSE')
+    plt.xlabel('Number of Epochs')
     plt.ylabel('Root Mean Squared Error (RMSE)')
-    plt.title('RMSE vs Batch Sizes')
+    plt.title('RMSE vs Epochs')
     plt.legend()
 
     best_params_text = f"Best Params:\nEpochs: {best_params['nb_epoch']}\nBatch Size: {best_params['batch_size']}\nLearning Rate: {best_params['learning_rate']}\nOptimizer: {best_params['opt']}"
     plt.text(1, 0.95, best_params_text, transform=plt.gcf().transFigure, fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    plt.savefig('rmse_plot_batch_size5.png', bbox_inches='tight')  
+    plt.savefig('rmse_plot_epochs4.png', bbox_inches='tight')  
     plt.show()
     return best_params
 
@@ -423,10 +415,10 @@ def example_main():
 
     # Training
     # make sure the model isn't overfitting
-    # regressor = Regressor(x_train, batch_size=32, learning_rate=0.0012, optimiser='AdaDelta', nb_epoch = 10)
-    # regressor.fit(x_train, y_train)
-    # save_regressor(regressor)
-    print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
+    regressor = Regressor(x_train, batch_size=8, learning_rate=0.0025, optimiser='Adam', nb_epoch = 9)
+    regressor.fit(x_train, y_train)
+    save_regressor(regressor)
+    # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
 
     # Training and validation (for Hyperparam Tuning)
     # print(RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid))
