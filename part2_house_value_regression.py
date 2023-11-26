@@ -316,7 +316,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     #                       ** START OF YOUR CODE **
     #######################################################################
 
-    params = {'batch_size':[4, 8, 16, 32],
+    params = {'batch_size':[8, 16, 32, 64],
               'nb_epoch':[5, 10, 15, 20, 25],
               'learning_rate':[0.003, 0.0025, 0.002, 0.0015, 0.001, 0.0005],
               'opt':['AdaDelta', 'Adam']}
@@ -376,7 +376,7 @@ def RegressorHyperParameterSearch(x_train, y_train, x_valid, y_valid):
     best_params_text = f"Best Params:\nEpochs: {best_params['nb_epoch']}\nBatch Size: {best_params['batch_size']}\nLearning Rate: {best_params['learning_rate']}\nOptimizer: {best_params['opt']}"
     plt.text(1, 0.95, best_params_text, transform=plt.gcf().transFigure, fontsize=8, verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
-    plt.savefig('rmse_plot_batch_size4.png', bbox_inches='tight')  
+    plt.savefig('rmse_plot_batch_size5.png', bbox_inches='tight')  
     plt.show()
     return best_params
 
